@@ -3,4 +3,4 @@
 
 Our paper is accepted to AAAI 2025 🎉.
 
-We are cleaning up the codebase, codes and weights will be released as soon as possiable.
+We are cleaning up the codebase. All of the codes and weights will be released as soon as possiable.

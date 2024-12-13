@@ -320,34 +320,6 @@ resume_from=None
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 
 '''
-Evaluating bboxes of pts_bbox (origin)
-mAP: 0.4824
-mATE: 0.5594
-mASE: 0.2721
-mAOE: 0.5599
-mAVE: 0.1973
-mAAE: 0.1772
-NDS: 0.5646
-
-Evaluating bboxes of pts_bbox (update P.E.)
-mAP: 0.4967
-mATE: 0.5527
-mASE: 0.2795
-mAOE: 0.5781
-mAVE: 0.2121
-mAAE: 0.1856
-NDS: 0.5675
-
-Evaluating bboxes of pts_bbox (update P.E. + split layer)
-mAP: 0.4981
-mATE: 0.5273
-mASE: 0.2790
-mAOE: 0.5520
-mAVE: 0.2017
-mAAE: 0.1684
-NDS: 0.5762
-
-Evaluating bboxes of pts_bbox (update P.E. + split layer + prune)
 NDS: 0.5862, 
 mAP:  0.5091,
 mATE: 0.5369,

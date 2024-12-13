@@ -317,16 +317,6 @@ resume_from=None
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 
 '''
-Evaluating bboxes of pts_bbox 
-mAP: 0.4498
-mATE: 0.5368
-mASE: 0.2828
-mAOE: 0.5305
-mAVE: 0.2196
-mAAE: 0.1735
-NDS: 0.5506
-
-Evaluating bboxes of pts_bbox (+prune)
 mAP: 0.4741
 mATE: 0.5399
 mASE: 0.2735

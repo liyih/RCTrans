@@ -1,0 +1,15 @@
+build/
+ckpts/
+data/
+work_dirs/
+nohup.out
+val/
+300_query/
+test/
+*.pth
+result_vis/
+modelzoo/
+modelzoo_p/
+iou3d_nms.egg-info/
+new_pic/
+query_pos/

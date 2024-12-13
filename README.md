@@ -82,4 +82,12 @@ python tools/visualize.py
 ```
 ## Weights
 backbones: [Swin_T](https://drive.usercontent.google.com/download?id=1OQhC-F4npQ4Dj9QIFUmWGE5Y56juLiEr&export=download&authuser=0&confirm=t&uuid=6b56dfd1-df54-4506-a9bc-1e088a76dfdf&at=APvzH3rsxTcnyR6_RLssyfXfLvhJ:1734079553818), [ResNet-18](https://drive.usercontent.google.com/download?id=1QWb74xrZ-HbywXvrLrYjs7hhCBheTS7n&export=download&authuser=0&confirm=t&uuid=6fb7c908-a33a-4bad-879f-25186fb67f14&at=APvzH3pcvUeKZrjbQ7WM818Dv41p:1734079499612), [ResNet-50](https://drive.usercontent.google.com/download?id=1LUg4Hjzn8BoOfjUTukHhsYj9Kj58PjE6&export=download&authuser=0&confirm=t&uuid=ea2707c9-dc11-4039-8436-18b4ee1c10ed&at=APvzH3r3SO-ITXZSXYCS8e8Tdc0y:1734079354810), [VovNet](https://drive.usercontent.google.com/download?id=17HVdkxE2nylUIU_mQrtexdG9nN8Mw2BN&export=download&authuser=0&confirm=t&uuid=19463c36-c860-4660-8f66-3c3fa60341bb&at=APvzH3oaxLom-XTmv-QfpCLOTx1O:1734079442549)
-Pretrained: [Swint-train](), [ResNet-18](), [ResNet-50]()
+Pretrained: [Swint-train](), [ResNet18-train](), [ResNet50-train]()
+## Acknowledgements
+We thank these great works and open-source codebases:
+[MMDetection3d](https://github.com/open-mmlab/mmdetection3d), [BEVFormer](https://github.com/fundamentalvision/BEVFormer)
+[DETR3D](https://github.com/WangYueFt/detr3d), [PETR](https://github.com/megvii-research/PETR),
+[StreamPETR](https://github.com/exiawsh/StreamPETR), [CMT](https://github.com/junjie18/CMT), [CenterPoint](https://github.com/tianweiy/CenterPoint)
+## Citation
+```bibtex
+```

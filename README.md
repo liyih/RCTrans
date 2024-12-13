@@ -2,7 +2,7 @@
 <h1>RCTrans</h1>
 <h3>[AAAI 2025] RCTrans: Radar-Camera Transformer via Radar Densiffer and Sequential Decoder for 3D Object Detection</h3>
 <h4>Yiheng Li, Yang Yang and Zhen Lei<h4>
-<h5>CASIA<h5>
+<h5>CBSR&CASIA<h5>
 </div>
 
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)]()
@@ -15,7 +15,7 @@ This repository is an official implementation of RCTrans.
 - [2024/12/13] Codes and weights are released.
 - [2024/12/10] RCTrans is accepted by AAAI 2023 🎉🎉.
 
-## Environment setting
+## Environment Setting
 ```
 conda create -n RCTrans python=3.8
 conda activate RCTrans
@@ -35,3 +35,24 @@ pip install ccimport==0.3.7
 pip install pccm==0.3.4
 pip install timm
 ```
+## Data Preparation
+```
+python tools/create_data_nusc.py --root-path ./data/nuscenes --out-dir ./data --extra-tag nuscenes_radar --version v1.0
+```
+Folder structure
+RCTrans
+├── projects/
+├── mmdetection3d/
+├── nusc_tracking/
+├── tools/
+├── ckpts/
+├── data/
+│   ├── nuscenes/
+│   │   ├── maps/
+│   │   ├── samples/
+│   │   ├── sweeps/
+│   │   ├── v1.0-test/
+|   |   ├── v1.0-trainval/
+|   ├── nuscenes_radar_temporal_infos_train.pkl
+|   ├── nuscenes_radar_temporal_infos_val.pkl
+|   ├── nuscenes_radar_temporal_infos_test.pkl

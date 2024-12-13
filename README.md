@@ -1,6 +1,8 @@
 <div align="center">
 <h1>RCTrans</h1>
 <h3>[AAAI 2025] RCTrans: Radar-Camera Transformer via Radar Densiffer and Sequential Decoder for 3D Object Detection</h3>
+<h4>Yiheng Li, Yang Yang and Zhen Lei<h4>
+<h5>CASIA<h5>
 </div>
 
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)]()

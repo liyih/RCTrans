@@ -14,16 +14,10 @@ voxel_size = [0.2, 0.2, 8]
 radar_voxel_size = [0.8, 0.8, 8]
 voxel_size = [0.2, 0.2, 8]
 # x y z rcs vx_comp vy_comp x_rms y_rms vx_rms vy_rms
-# radar_use_dims = [0, 1, 2, 8, 9, 18]
 radar_use_dims = [0, 1, 2, 8, 9, 18]
 out_size_factor = 4
-mem_query = 256
-sim_fpn=dict(
-        scale_factors=[4, 2, 1, 0.5, 0.25],
-        in_channels=1024,
-        out_channels=256,
-        out_indices=[2, 3, 4, 5, 6],
-        )
+mem_query = 128
+
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 # For nuScenes we usually do 10-class detection
@@ -33,9 +27,9 @@ class_names = [
 ]
 
 num_gpus = 8
-batch_size = 2
-num_iters_per_epoch = (28130 + 6019) // (num_gpus * batch_size)
-num_epochs = 60
+batch_size = 4
+num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+num_epochs = 90
 
 queue_length = 1
 num_frame_losses = 1
@@ -54,33 +48,23 @@ model = dict(
     use_grid_mask=True,
     # img encoder
     img_backbone=dict(
-        type='ViT',
-        img_size=320,
-        patch_size=16,
-        window_size=16,
-        global_window_size=20,
-        in_chans=3,
-        embed_dim=1024,
-        depth=24,
-        num_heads=16,
-        mlp_ratio=4*2/3,
-        window_block_indexes = (
-        list(range(0, 2)) + list(range(3, 5)) + list(range(6, 8)) + list(range(9, 11)) + list(range(12, 14)) + list(range(15, 17)) + list(range(18, 20)) + list(range(21, 23))
-        ),
-        sim_fpn=None,
-        # sim_fpn=sim_fpn, #Only for RepDETR3D
-        qkv_bias=True,
-        drop_path_rate=0.3,
-        # use_act_checkpoint=False,
-        # xattn=False,
-        use_act_checkpoint=True,
-        xattn=True,
-    ),
-    # img_neck=dict(
-    #     type='CPFPN',  ###remove unused parameters 
-    #     in_channels=[1024, 1024],
-    #     out_channels=256,
-    #     num_outs=2),
+        init_cfg=dict(
+            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+            prefix='backbone.'),       
+        type='ResNet',
+        depth=18,
+        num_stages=4,
+        out_indices=(2, 3),
+        frozen_stages=-1,
+        norm_cfg=dict(type='BN2d', requires_grad=False),
+        norm_eval=True,
+        with_cp=True,
+        style='pytorch'),
+    img_neck=dict(
+        type='CPFPN',  ###remove unused parameters 
+        in_channels=[256, 512],
+        out_channels=256,
+        num_outs=2),
     img_roi_head=dict(
         type='FocalHead',
         num_classes=10,
@@ -129,25 +113,8 @@ model = dict(
     radar_dense_encoder=dict(
         type='Radar_dense_encoder_tf',
     ),
-    # radar_backbone=dict(
-    #     type='SECOND',
-    #     in_channels=64,
-    #     out_channels=[128, 256],
-    #     layer_nums=[5, 5],
-    #     layer_strides=[1, 2],
-    #     norm_cfg=dict(type='BN', eps=0.001, momentum=0.01),
-    #     conv_cfg=dict(type='Conv2d', bias=False)),
-    # radar_neck=dict(
-    #     type='SECONDFPN',
-    #     in_channels=[128, 256],
-    #     out_channels=[256, 256],
-    #     upsample_strides=[1, 2],
-    #     norm_cfg=dict(type='BN', eps=0.001, momentum=0.01),
-    #     upsample_cfg=dict(type='deconv', bias=False),
-    #     use_conv_for_no_stride=True),
     # detect head
     pts_bbox_head=dict(
-        # type='StreamRCDETRHead',
         type='CascadeStreamRCDETRHeadSplit',
         num_classes=10,
         in_channels_img=256,
@@ -167,10 +134,8 @@ model = dict(
         position_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
         code_weights = [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
         transformer=dict(
-            # type='PETRTemporalTransformer',
             type='CascadePETRTemporalTransformerSplit',
             decoder=dict(
-                # type='PETRTransformerDecoder',
                 type='CascadePETRTransformerDecoderSplit',
                 return_intermediate=True,
                 num_layers=6,
@@ -230,8 +195,8 @@ file_client_args = dict(backend='disk')
 
 
 ida_aug_conf = {
-        "resize_lim": (0.94, 1.25),
-        "final_dim": (800, 1600),
+        "resize_lim": (0.38, 0.55),
+        "final_dim": (256, 704),
         "bot_pct_lim": (0.0, 0.0),
         "rot_lim": (0.0, 0.0),
         "H": 900,
@@ -249,12 +214,6 @@ train_pipeline = [
         max_num=2048),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
-    # dict(
-    #     type='BEVFusionGlobalRotScaleTrans',
-    #     scale_ratio_range=[0.9, 1.1],
-    #     rot_range=[-0.78539816, 0.78539816],
-    #     translation_std=0.5),
-    # dict(type='BEVFusionRandomFlip3D'),
     dict(type='RadarRangeFilter', radar_range=bev_range),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
@@ -278,8 +237,8 @@ test_pipeline = [
     dict(
         type='LoadRadarPointsMultiSweeps',
         load_dim=18,
-        sweeps_num=10,
-        use_num=10,
+        sweeps_num=6,
+        use_num=6,
         use_dim=radar_use_dims,
         max_num=2048),
     dict(type='RadarRangeFilter', radar_range=bev_range),
@@ -309,7 +268,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'nuscenes_radar_temporal_infos_trainval.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -328,32 +287,14 @@ data = dict(
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
-# optimizer = dict(
-#     type='AdamW', 
-#     lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
-#     paramwise_cfg=dict(
-#         custom_keys={
-#             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
-#         }),
-#     weight_decay=0.01)
-
 optimizer = dict(
     type='AdamW', 
-    lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-7, 
+    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
         }),
-    )
-
-# optimizer = dict(constructor='LearningRateDecayOptimizerConstructor',     
-#     type='AdamW', 
-#     lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-7,
-#     paramwise_cfg={'decay_rate': 0.9,
-#                 'head_decay_rate': 4.0,
-#                 'decay_type': 'vit_wise',
-#                 'num_layers': 60,
-#                 })
+    weight_decay=0.01)
 
 optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
@@ -365,23 +306,32 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
+evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 checkpoint_config = dict(interval=num_iters_per_epoch, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
-# load_from='ckpts/eva02_L_coco_det_sys_o365_remapped.pth'
 load_from=None
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 
 '''
-mAP: 0.6301
-mATE: 0.4340
-mASE: 0.2425
-mAOE: 0.3042
-mAVE: 0.1812
-mAAE: 0.1292
-NDS: 0.6859
+Evaluating bboxes of pts_bbox 
+mAP: 0.4498
+mATE: 0.5368
+mASE: 0.2828
+mAOE: 0.5305
+mAVE: 0.2196
+mAAE: 0.1735
+NDS: 0.5506
+
+Evaluating bboxes of pts_bbox (+prune)
+mAP: 0.4741
+mATE: 0.5399
+mASE: 0.2735
+mAOE: 0.5566
+mAVE: 0.2081
+mAAE: 0.1899
+NDS: 0.5602
 '''

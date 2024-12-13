@@ -14,7 +14,6 @@ voxel_size = [0.2, 0.2, 8]
 radar_voxel_size = [0.8, 0.8, 8]
 voxel_size = [0.2, 0.2, 8]
 # x y z rcs vx_comp vy_comp x_rms y_rms vx_rms vy_rms
-# radar_use_dims = [0, 1, 2, 8, 9, 18]
 radar_use_dims = [0, 1, 2, 8, 9, 18]
 out_size_factor = 4
 mem_query = 128
@@ -28,8 +27,9 @@ class_names = [
 ]
 
 num_gpus = 8
-batch_size = 1
-num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+batch_size = 4
+# num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+num_iters_per_epoch = (28130 + 6019) // (num_gpus * batch_size)
 num_epochs = 90
 
 queue_length = 1
@@ -49,27 +49,17 @@ model = dict(
     use_grid_mask=True,
     # img encoder
     img_backbone=dict(
-        type='DLANet',
-        depth=34,
-        in_channels=3,
-        out_indices=(0, 1, 2, 3, 4, 5),
-        norm_cfg=dict(type='BN', requires_grad=True),
-        init_cfg=dict(
-            type='Pretrained',
-            prefix='backbone.',
-            checkpoint='ckpts/dla34-nuimages-pretrained-e2e.pth')
-        ),
-    # img_neck=dict(
-    #     type='CPFPN',  ###remove unused parameters 
-    #     in_channels=[16, 32, 64, 128, 256, 512],
-    #     out_channels=256,
-    #     num_outs=6),
+        type='VoVNetCP', ###use checkpoint to save memory
+        spec_name='V-99-eSE',
+        norm_eval=True,
+        frozen_stages=-1,
+        input_ch=3,
+        out_features=('stage4','stage5',)),
     img_neck=dict(
-        type='DLANeck',
-        in_channels=[16, 32, 64, 128, 256, 512],
-        start_level=4,
-        end_level=5,
-        norm_cfg=dict(type='BN', requires_grad=True)),
+        type='CPFPN',  ###remove unused parameters 
+        in_channels=[768, 1024],
+        out_channels=256,
+        num_outs=2),
     img_roi_head=dict(
         type='FocalHead',
         num_classes=10,
@@ -118,22 +108,6 @@ model = dict(
     radar_dense_encoder=dict(
         type='Radar_dense_encoder_tf',
     ),
-    # radar_backbone=dict(
-    #     type='SECOND',
-    #     in_channels=64,
-    #     out_channels=[128, 256],
-    #     layer_nums=[5, 5],
-    #     layer_strides=[1, 2],
-    #     norm_cfg=dict(type='BN', eps=0.001, momentum=0.01),
-    #     conv_cfg=dict(type='Conv2d', bias=False)),
-    # radar_neck=dict(
-    #     type='SECONDFPN',
-    #     in_channels=[128, 256],
-    #     out_channels=[256, 256],
-    #     upsample_strides=[1, 2],
-    #     norm_cfg=dict(type='BN', eps=0.001, momentum=0.01),
-    #     upsample_cfg=dict(type='deconv', bias=False),
-    #     use_conv_for_no_stride=True),
     # detect head
     pts_bbox_head=dict(
         # type='StreamRCDETRHead',
@@ -156,10 +130,8 @@ model = dict(
         position_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
         code_weights = [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
         transformer=dict(
-            # type='PETRTemporalTransformer',
             type='CascadePETRTemporalTransformerSplit',
             decoder=dict(
-                # type='PETRTransformerDecoder',
                 type='CascadePETRTransformerDecoderSplit',
                 return_intermediate=True,
                 num_layers=6,
@@ -219,8 +191,8 @@ file_client_args = dict(backend='disk')
 
 
 ida_aug_conf = {
-        "resize_lim": (0.66, 0.625),
-        "final_dim": (448, 800),
+        "resize_lim": (0.94, 1.25),
+        "final_dim": (640, 1600),
         "bot_pct_lim": (0.0, 0.0),
         "rot_lim": (0.0, 0.0),
         "H": 900,
@@ -238,12 +210,6 @@ train_pipeline = [
         max_num=2048),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
-    # dict(
-    #     type='BEVFusionGlobalRotScaleTrans',
-    #     scale_ratio_range=[0.9, 1.1],
-    #     rot_range=[-0.78539816, 0.78539816],
-    #     translation_std=0.5),
-    # dict(type='BEVFusionRandomFlip3D'),
     dict(type='RadarRangeFilter', radar_range=bev_range),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
@@ -298,7 +264,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_trainval.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -325,16 +291,6 @@ optimizer = dict(
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
         }),
     weight_decay=0.01)
-
-# optimizer = dict(constructor='LearningRateDecayOptimizerConstructor',     
-#     type='AdamW', 
-#     lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-7,
-#     paramwise_cfg={'decay_rate': 0.9,
-#                 'head_decay_rate': 4.0,
-#                 'decay_type': 'vit_wise',
-#                 'num_layers': 60,
-#                 })
-
 optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
@@ -346,15 +302,53 @@ lr_config = dict(
     )
 
 evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
-find_unused_parameters=True #### when use checkpoint, find_unused_parameters must be False
+find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 checkpoint_config = dict(interval=num_iters_per_epoch, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
-load_from=None
+load_from='ckpts/fcos3d_vovnet_imgbackbone-remapped.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
-
 '''
-Evaluating bboxes of pts_bbox
+Saving metrics to: /tmp/tmpd72mo40e/nuscenes-metrics
+mAP: 0.5777
+mATE: 0.4593
+mASE: 0.2453
+mAOE: 0.3916
+mAVE: 0.1975
+mAAE: 0.1212
+NDS: 0.6474
+
+Per-class results:
+		AMOTA	AMOTP	RECALL	MOTAR	GT	MOTA	MOTP	MT	ML	FAF	TP	FP	FN	IDS	FRAG	TID	LGD
+bicycle 	0.452	1.191	0.475	0.860	2186	0.408	0.447	60	86	10.8	1037	145	1148	1	8	0.86	1.47
+bus     	0.521	1.121	0.588	0.768	1701	0.452	0.614	48	34	15.5	1001	232	700	0	4	1.24	1.48
+car     	0.743	0.628	0.801	0.850	68518	0.678	0.349	3039	1055	140.9	54678	8229	13623	217	256	0.48	0.79
+motorcy 	0.642	0.890	0.690	0.879	1945	0.602	0.458	72	39	12.9	1331	161	603	11	11	0.75	1.06
+pedestr 	0.652	0.942	0.706	0.839	34010	0.581	0.598	1117	488	76.4	23559	3784	10009	442	317	0.81	1.41
+trailer 	0.634	1.043	0.740	0.804	2566	0.592	0.752	88	32	37.1	1890	371	668	8	15	0.92	1.25
+truck   	0.530	0.969	0.683	0.698	8639	0.476	0.485	262	153	44.7	5886	1778	2740	13	43	0.83	1.26
+
+Aggregated results:
+AMOTA	0.596
+AMOTP	0.969
+RECALL	0.669
+MOTAR	0.814
+GT	17080
+MOTA	0.541
+MOTP	0.529
+MT	4686
+ML	1887
+FAF	48.3
+TP	89382
+FP	14700
+FN	29491
+IDS	692
+FRAG	654
+TID	0.84
+LGD	1.25
+Eval time: 4522.6s
+
+Completed evaluation for test phase
 '''

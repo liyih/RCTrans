@@ -40,6 +40,7 @@ pip install timm
 python tools/create_data_nusc.py --root-path ./data/nuscenes --out-dir ./data --extra-tag nuscenes_radar --version v1.0
 ```
 Folder structure
+```
 RCTrans
 ├── projects/
 ├── mmdetection3d/
@@ -56,3 +57,5 @@ RCTrans
 |   ├── nuscenes_radar_temporal_infos_train.pkl
 |   ├── nuscenes_radar_temporal_infos_val.pkl
 |   ├── nuscenes_radar_temporal_infos_test.pkl
+```
+Or you can directly use our pre-generated pickles here. [Val](https://drive.usercontent.google.com/download?id=1CLs4zi2tmkBl33XzEkvmUDT9an-2N9c5&export=download&authuser=0&confirm=t&uuid=22c1cee9-3b91-4b7f-84b8-fd69aae10224&at=APvzH3oFQ5HqwWzKXsSTckzGP1gP:1734076238954)[Train](https://drive.usercontent.google.com/download?id=1m2rggU4jzuBPDPfCbC3u0G5ugD-e8P9t&export=download&authuser=0&confirm=t&uuid=61169d3e-e31b-4ad7-920c-3a746eceba74&at=APvzH3qPOu74S9o-v19hxWgZU-ku:1734076306697)[Test](https://drive.usercontent.google.com/download?id=1Xhc1DMbi67YsV7nis26GWOjxjVAmTF3o&export=download&authuser=0&confirm=t&uuid=86051653-5de3-4383-ab97-ab43f0ec93d1&at=APvzH3p-l9SdhykVspp5eDGxmLMa:1734076308824)

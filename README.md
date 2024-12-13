@@ -60,7 +60,24 @@ RCTrans
 Or you can directly use our pre-generated pickles here. [Val](https://drive.usercontent.google.com/download?id=1CLs4zi2tmkBl33XzEkvmUDT9an-2N9c5&export=download&authuser=0&confirm=t&uuid=22c1cee9-3b91-4b7f-84b8-fd69aae10224&at=APvzH3oFQ5HqwWzKXsSTckzGP1gP:1734076238954) [Train](https://drive.usercontent.google.com/download?id=1m2rggU4jzuBPDPfCbC3u0G5ugD-e8P9t&export=download&authuser=0&confirm=t&uuid=61169d3e-e31b-4ad7-920c-3a746eceba74&at=APvzH3qPOu74S9o-v19hxWgZU-ku:1734076306697) [Test](https://drive.usercontent.google.com/download?id=1Xhc1DMbi67YsV7nis26GWOjxjVAmTF3o&export=download&authuser=0&confirm=t&uuid=86051653-5de3-4383-ab97-ab43f0ec93d1&at=APvzH3p-l9SdhykVspp5eDGxmLMa:1734076308824)
 ## Train & Inference
 train
+```
 tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py 8 --work-dir work_dirs/xxx/
+```
 Evaluation
+```
 tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py ckpts/xxx.pth 8 --eval bbox
+```
+Tracking
+```
+# following the scripts [Test]{https://github.com/tianweiy/CenterPoint/tree/master/tools/nusc_tracking} of CenterPoint.
+```
+Speed
+```
+python tools/benchmark.py projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py --checkpoint ckpts/xxx.pth
+```
+Visualize
+```
+python tools/visualize.py
+# We also recommand to use the Visualization codes from BEVFormer, which is really nice.
+```
 ## Weights

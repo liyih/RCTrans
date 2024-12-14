@@ -15,7 +15,7 @@ This repository is an official implementation of RCTrans.
 
 ## News
 - [2024/12/13] Codes and weights are released.
-- [2024/12/10] RCTrans is accepted by AAAI 2023 🎉🎉.
+- [2024/12/10] RCTrans is accepted by AAAI 2025 🎉🎉.
 
 ## Environment Setting
 ```

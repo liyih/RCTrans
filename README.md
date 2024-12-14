@@ -7,6 +7,8 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)]()
 
+The paper will be released as soon as possiable.
+
 ## Introduction
 
 This repository is an official implementation of RCTrans.

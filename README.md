@@ -91,7 +91,7 @@ We give the pre-trained in Table 1: [Swint-train](https://drive.usercontent.goog
 We thank these great works and open-source codebases:
 [MMDetection3d](https://github.com/open-mmlab/mmdetection3d), [BEVFormer](https://github.com/fundamentalvision/BEVFormer),
 [DETR3D](https://github.com/WangYueFt/detr3d), [PETR](https://github.com/megvii-research/PETR),
-[StreamPETR](https://github.com/exiawsh/StreamPETR), [CMT](https://github.com/junjie18/CMT), [CenterPoint](https://github.com/tianweiy/CenterPoint).
+[StreamPETR](https://github.com/exiawsh/StreamPETR), [CMT](https://github.com/junjie18/CMT), [CenterPoint](https://github.com/tianweiy/CenterPoint), [FUTR3D](https://github.com/Tsinghua-MARS-Lab/futr3d).
 ## Citation
 If you find our work is useful, please give this repo a star and cite our work as:
 ```bibtex

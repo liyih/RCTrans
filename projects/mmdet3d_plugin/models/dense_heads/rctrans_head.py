@@ -144,7 +144,7 @@ class RCTransHead(AnchorFreeHead):
         self.bg_cls_weight = 0
         self.sync_cls_avg_factor = sync_cls_avg_factor
         class_weight = loss_cls.get('class_weight', None)
-        if class_weight is not None and (self.__class__ is CascadeStreamRCDETRHeadSplit):
+        if class_weight is not None and (self.__class__ is RCTransHead):
             assert isinstance(class_weight, float), 'Expected ' \
                 'class_weight to have type float. Found ' \
                 f'{type(class_weight)}.'
@@ -206,7 +206,7 @@ class RCTransHead(AnchorFreeHead):
                                        dict(type='ReLU', inplace=True))
         self.num_pred = 6
         self.normedlinear = normedlinear
-        super(CascadeStreamRCDETRHeadSplit, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
+        super(RCTransHead, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
 
         self.loss_cls = build_loss(loss_cls)
         self.loss_bbox = build_loss(loss_bbox)
@@ -569,7 +569,7 @@ class RCTransHead(AnchorFreeHead):
 
         # Names of some parameters in has been changed.
         version = local_metadata.get('version', None)
-        if (version is None or version < 2) and self.__class__ is CascadeStreamRCDETRHeadSplit:
+        if (version is None or version < 2) and self.__class__ is RCTransHead:
             convert_dict = {
                 '.self_attn.': '.attentions.0.',
                 # '.ffn.': '.ffns.0.',

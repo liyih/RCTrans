@@ -41,7 +41,7 @@ def pos2embed(pos, num_pos_feats=128, temperature=10000):
     return posemb
 
 @HEADS.register_module()
-class CascadeStreamRCDETRHead(AnchorFreeHead):
+class RCTransHead(AnchorFreeHead):
     """Implements the DETR transformer head.
     See `paper: End-to-End Object Detection with Transformers
     <https://arxiv.org/pdf/2005.12872>`_ for details.
@@ -144,7 +144,7 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
         self.bg_cls_weight = 0
         self.sync_cls_avg_factor = sync_cls_avg_factor
         class_weight = loss_cls.get('class_weight', None)
-        if class_weight is not None and (self.__class__ is CascadeStreamRCDETRHead):
+        if class_weight is not None and (self.__class__ is CascadeStreamRCDETRHeadSplit):
             assert isinstance(class_weight, float), 'Expected ' \
                 'class_weight to have type float. Found ' \
                 f'{type(class_weight)}.'
@@ -201,12 +201,12 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
         self.bbox_noise_trans = noise_trans
         self.dn_weight = dn_weight
         self.split = split 
-
+        self.prune_number = 3
         self.act_cfg = transformer.get('act_cfg',
                                        dict(type='ReLU', inplace=True))
         self.num_pred = 6
         self.normedlinear = normedlinear
-        super(CascadeStreamRCDETRHead, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
+        super(CascadeStreamRCDETRHeadSplit, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
 
         self.loss_cls = build_loss(loss_cls)
         self.loss_bbox = build_loss(loss_bbox)
@@ -403,8 +403,8 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
         self.memory_timestamp -= data['timestamp'].unsqueeze(-1).unsqueeze(-1)
         self.memory_egopose = data['ego_pose'].unsqueeze(1) @ self.memory_egopose
 
-    def temporal_alignment(self, query_pos, tgt, reference_points, img_metas):
-        B = query_pos.size(0)
+    def temporal_alignment(self, tgt, reference_points, img_metas):
+        B = tgt.size(0)
         if 'radar_aug_matrix' in img_metas[0].keys():
             memory_reference_point_list = []
             bz = len(img_metas)
@@ -417,44 +417,50 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
         else:
             temp_reference_point = (self.memory_reference_point - self.pc_range[:3]) / (self.pc_range[3:6] - self.pc_range[0:3])
 
-        bev_query_embeds, rv_query_embeds = self.query_embed(temp_reference_point, img_metas)
-        temp_pos = bev_query_embeds + rv_query_embeds
+        temp_bevpos, temp_rvpos = self.query_embed(temp_reference_point, img_metas)
+        # temp_pos = bev_query_embeds + rv_query_embeds
 
         temp_memory = self.memory_embedding
-        rec_ego_pose = torch.eye(4, device=query_pos.device).unsqueeze(0).unsqueeze(0).repeat(B, query_pos.size(1), 1, 1)
+        rec_ego_pose = torch.eye(4, device=tgt.device).unsqueeze(0).unsqueeze(0).repeat(B, tgt.size(1), 1, 1)
 
         if self.with_ego_pos:
             rec_ego_motion = torch.cat([torch.zeros_like(reference_points[...,:3]), rec_ego_pose[..., :3, :].flatten(-2)], dim=-1)
             rec_ego_motion = nerf_positional_encoding(rec_ego_motion)
             tgt = self.ego_pose_memory(tgt, rec_ego_motion)
-            query_pos = self.ego_pose_pe(query_pos, rec_ego_motion)
+
             memory_ego_motion = torch.cat([self.memory_velo, self.memory_timestamp, self.memory_egopose[..., :3, :].flatten(-2)], dim=-1).float()
             memory_ego_motion = nerf_positional_encoding(memory_ego_motion)
-            temp_pos = self.ego_pose_pe(temp_pos, memory_ego_motion)
+            temp_bevpos = self.ego_pose_pe(temp_bevpos, memory_ego_motion)
+            temp_rvpos = self.ego_pose_pe(temp_rvpos, memory_ego_motion)
+
             temp_memory = self.ego_pose_memory(temp_memory, memory_ego_motion)
 
-        query_pos += self.time_embedding(pos2posemb1d(torch.zeros_like(reference_points[...,:1])))
-        temp_pos += self.time_embedding(pos2posemb1d(self.memory_timestamp).float())
+        temp_bevpos += self.time_embedding(pos2posemb1d(self.memory_timestamp).float())
+        temp_rvpos += self.time_embedding(pos2posemb1d(self.memory_timestamp).float())
+
 
         if self.num_propagated > 0:
             tgt = torch.cat([tgt, temp_memory[:, :self.num_propagated]], dim=1)
-            query_pos = torch.cat([query_pos, temp_pos[:, :self.num_propagated]], dim=1)
+            
             reference_points = torch.cat([reference_points, temp_reference_point[:, :self.num_propagated]], dim=1)
-            rec_ego_pose = torch.eye(4, device=query_pos.device).unsqueeze(0).unsqueeze(0).repeat(B, query_pos.shape[1]+self.num_propagated, 1, 1)
+            rec_ego_pose = torch.eye(4, device=tgt.device).unsqueeze(0).unsqueeze(0).repeat(B, tgt.shape[1]+self.num_propagated, 1, 1)
             temp_memory = temp_memory[:, self.num_propagated:]
-            temp_pos = temp_pos[:, self.num_propagated:]
 
-        return tgt, query_pos, reference_points, temp_memory, temp_pos, rec_ego_pose
 
-    def temporal_alignment_pos(self, query_pos, reference_points):
-        B = query_pos.size(0)
-        rec_ego_pose = torch.eye(4, device=query_pos.device).unsqueeze(0).unsqueeze(0).repeat(B, query_pos.size(1), 1, 1)
+        return tgt, reference_points, temp_memory, temp_bevpos, temp_rvpos, rec_ego_pose
+
+    def temporal_alignment_pos(self, query_bevpos, query_rvpos, reference_points):
+        B = query_bevpos.size(0)
+        rec_ego_pose = torch.eye(4, device=query_bevpos.device).unsqueeze(0).unsqueeze(0).repeat(B, query_bevpos.size(1), 1, 1)
         if self.with_ego_pos:
             rec_ego_motion = torch.cat([torch.zeros_like(reference_points[...,:3]), rec_ego_pose[..., :3, :].flatten(-2)], dim=-1)
             rec_ego_motion = nerf_positional_encoding(rec_ego_motion)
-            query_pos = self.ego_pose_pe(query_pos, rec_ego_motion)
-        query_pos += self.time_embedding(pos2posemb1d(torch.zeros_like(reference_points[...,:1])))
-        return query_pos
+            query_bevpos = self.ego_pose_pe(query_bevpos, rec_ego_motion)
+            query_rvpos = self.ego_pose_pe(query_rvpos, rec_ego_motion)
+
+        query_bevpos += self.time_embedding(pos2posemb1d(torch.zeros_like(reference_points[...,:1])))
+        query_rvpos += self.time_embedding(pos2posemb1d(torch.zeros_like(reference_points[...,:1])))
+        return query_bevpos, query_rvpos
 
     def coords_bev(self, x_radar):
         x_size, y_size = (
@@ -563,7 +569,7 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
 
         # Names of some parameters in has been changed.
         version = local_metadata.get('version', None)
-        if (version is None or version < 2) and self.__class__ is CascadeStreamRCDETRHead:
+        if (version is None or version < 2) and self.__class__ is CascadeStreamRCDETRHeadSplit:
             convert_dict = {
                 '.self_attn.': '.attentions.0.',
                 # '.ffn.': '.ffns.0.',
@@ -661,6 +667,7 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
 
     def query_embed(self, ref_points, img_metas):
         ref_points = inverse_sigmoid(ref_points.clone()).sigmoid()
+        # ref_points = ref_points.clone()
         bev_embeds = self._bev_query_embed(ref_points, img_metas)
         rv_embeds = self._rv_query_embed(ref_points, img_metas)
         return bev_embeds, rv_embeds
@@ -706,15 +713,21 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
         reference_points = self.reference_points.weight
         reference_points, attn_mask, mask_dict = self.prepare_for_dn(B, reference_points, img_metas)
 
-        bev_query_embeds, rv_query_embeds = self.query_embed(reference_points, img_metas)
-        query_pos = bev_query_embeds + rv_query_embeds
-        tgt = torch.zeros_like(query_pos)
+        bev_query_pos, rv_query_pos = self.query_embed(reference_points, img_metas)
+      
+        tgt = torch.zeros_like(bev_query_pos)
         ############
         
         # prepare for the tgt and query_pos using mln.
-        tgt, query_pos, reference_points, temp_memory, temp_pos, rec_ego_pose = self.temporal_alignment(query_pos, tgt, reference_points, img_metas)
+        tgt, reference_points, temp_memory, temp_bevpos, temp_rvpos, rec_ego_pose = self.temporal_alignment(tgt, reference_points, img_metas)
+
+        bev_query_pos = torch.cat([bev_query_pos, temp_bevpos[:, :self.num_propagated]], dim=1)
+        rv_query_pos = torch.cat([rv_query_pos, temp_rvpos[:, :self.num_propagated]], dim=1)
+        temp_bevpos = temp_bevpos[:, self.num_propagated:]
+        temp_rvpos = temp_rvpos[:, self.num_propagated:]
+
         # transformer here is a little different from PETR
-        outputs_classes, outputs_coords, outs_dec = self.transformer(memory, tgt, query_pos, pos_embed, attn_mask, temp_memory, temp_pos, \
+        outputs_classes, outputs_coords, outs_dec = self.transformer(memory, tgt, [bev_query_pos, rv_query_pos], pos_embed, attn_mask, temp_memory, [temp_bevpos, temp_rvpos], \
                                         self.cls_branches, self.reg_branches, reference_points, img_metas, self.query_embed, self.temporal_alignment_pos)
 
         all_cls_scores = torch.stack(outputs_classes)
@@ -722,7 +735,7 @@ class CascadeStreamRCDETRHead(AnchorFreeHead):
         all_bbox_preds[..., 0:3] = (all_bbox_preds[..., 0:3] * (self.pc_range[3:6] - self.pc_range[0:3]) + self.pc_range[0:3])
         
         # update the memory bank
-        self.post_update_memory(data, rec_ego_pose, all_cls_scores, all_bbox_preds, outs_dec, mask_dict, img_metas)
+        self.post_update_memory(data, rec_ego_pose, all_cls_scores[:self.prune_number], all_bbox_preds[:self.prune_number], outs_dec[:self.prune_number], mask_dict, img_metas)
 
         if mask_dict and mask_dict['pad_size'] > 0:
             output_known_class = all_cls_scores[:, :, :mask_dict['pad_size'], :]

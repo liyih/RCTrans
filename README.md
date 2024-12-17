@@ -76,7 +76,7 @@ Tracking
 ```
 Speed
 ```
-python tools/benchmark.py projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py --checkpoint ckpts/xxx.pth
+python tools/benchmark.py projects/configs/test_speed/rcdetr_90e_256×704.py --checkpoint ckpts/xxx.pth
 ```
 Visualize
 ```

@@ -164,39 +164,6 @@ class Up_block(nn.Module):
         # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
-
-@MIDDLE_ENCODERS.register_module()
-class Radar_dense_encoder(nn.Module):
-
-    def __init__(self, in_channel = 64, out_channel = 64, bilinear = False):
-        super().__init__()
-
-        self.in_channels = in_channel
-        self.out_classes = out_channel
-        self.bilinear = bilinear
-        factor = 2 if bilinear else 1
-
-        self.inc = (DoubleConv(in_channel, 64))
-        self.down1 = (Down_block(64, 128))
-        self.down2 = (Down_block(128, 256))
-        self.down3 = (Down_block(256, 512))
-        self.down4 = (Down_block(512, 1024 // factor))
-        self.up1 = (Up_block(1024, 512 // factor, bilinear))
-        self.up2 = (Up_block(512, 256 // factor, bilinear))
-        self.up3 = (Up_block(256, 128 // factor, bilinear))
-        self.up4 = (Up_block(128, 64, bilinear))
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        return x
     
 @MIDDLE_ENCODERS.register_module()
 class Radar_dense_encoder_tf(nn.Module):
@@ -260,24 +227,4 @@ class Radar_dense_encoder_tf(nn.Module):
         x = self.up2(x, x2)
         x = self.up3(x, x1)
 
-        return x
-    
-class pointnet(nn.Module):
-    def __init__(self, channel):
-        super().__init__()
-        self.channel = channel
-        self.conv1 = nn.Conv1d(channel, channel*2, 1)
-        self.bn1 = nn.BatchNorm1d(channel*2)
-        self.conv2 = nn.Conv1d(channel*2, channel*2, 1)
-        self.bn2 = nn.BatchNorm1d(channel*2)
-        self.conv3 = nn.Conv1d(channel*3, channel, 1)
-        self.bn3 = nn.BatchNorm1d(channel)
-
-    def forward(self, pointfeat):
-        x = F.relu(self.bn1(self.conv1(pointfeat)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = torch.max(x, 2, keepdim=True)[0]
-        x = x.repeat(1, 1, pointfeat.shape[2])
-        x = torch.cat([x, pointfeat], 1)
-        x = F.relu(self.bn3(self.conv3(x)))
         return x

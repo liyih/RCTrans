@@ -115,7 +115,7 @@ model = dict(
     ),
     # detect head
     pts_bbox_head=dict(
-        type='CascadeStreamRCDETRHeadSplit',
+        type='RCTransHead',
         num_classes=10,
         in_channels_img=256,
         in_channels_radar=64,
@@ -134,9 +134,9 @@ model = dict(
         position_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
         code_weights = [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
         transformer=dict(
-            type='CascadePETRTemporalTransformerSplit',
+            type='RCTransTemporalTransformer',
             decoder=dict(
-                type='CascadePETRTransformerDecoderSplit',
+                type='RCTransTransformerDecoder',
                 return_intermediate=True,
                 num_layers=6,
                 transformerlayers=dict(

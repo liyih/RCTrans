@@ -7,6 +7,6 @@
 from .vovnet import VoVNet
 from .vovnetcp import VoVNetCP
 from .eva_vit import EVAViT
-from .pointpillars import PointPillarsScatter_futr3d, Radar_dense_encoder, Radar_dense_encoder_tf
+from .pointpillars import PointPillarsScatter_futr3d, Radar_dense_encoder_tf
 from .radar_encoder import RadarFeatureNet
 from .vit import ViT

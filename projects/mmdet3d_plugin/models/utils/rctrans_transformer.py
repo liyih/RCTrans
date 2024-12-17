@@ -32,7 +32,7 @@ from mmdet.models.utils.transformer import inverse_sigmoid
 from mmcv.runner import auto_fp16
 
 @TRANSFORMER_LAYER_SEQUENCE.register_module()
-class CascadePETRTransformerDecoder(TransformerLayerSequence):
+class RCTransTransformerDecoder(TransformerLayerSequence):
     """Implements the decoder in DETR transformer.
     Args:
         return_intermediate (bool): Whether to return intermediate outputs.
@@ -46,8 +46,10 @@ class CascadePETRTransformerDecoder(TransformerLayerSequence):
                  return_intermediate=False,
                  **kwargs):
 
-        super(CascadePETRTransformerDecoder, self).__init__(*args, **kwargs)
+        super(RCTransTransformerDecoder, self).__init__(*args, **kwargs)
         self.return_intermediate = return_intermediate
+        self.bev_size = 128
+        self.test_breaking = 2
         if post_norm_cfg is not None:
             self.post_norm = build_norm_layer(post_norm_cfg,
                                               self.embed_dims)[1]
@@ -61,12 +63,27 @@ class CascadePETRTransformerDecoder(TransformerLayerSequence):
         outputs_coords = []
         intermediate = []
         assert reference_points is not None
-        for index in range(len(self.layers)):
-            layer = self.layers[index]
-            query = layer(query, key, value, query_pos, key_pos, temp_memory, temp_pos, attn_masks) # [Nq, B, C]
+        
+        bev_key = key[:self.bev_size * self.bev_size, :, :]
+        rv_key = key[self.bev_size * self.bev_size:, :, :]
+        bev_key_pos = key_pos[:self.bev_size * self.bev_size, :, :]
+        rv_key_pos = key_pos[self.bev_size * self.bev_size:, :, :]
+
+        bev_temp_pos = temp_pos[0].transpose(1,0).contiguous()
+        rv_temp_pos = temp_pos[1].transpose(1,0).contiguous()
+        temp_memory = temp_memory.transpose(1,0).contiguous()
+
+        bev_query_pos = query_pos[0].transpose(1,0).contiguous()
+        rv_query_pos = query_pos[1].transpose(1,0).contiguous()
+
+        for index in range(int(len(self.layers)/2)):
+
+            query = self.layers[2*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
+            query = self.layers[2*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
             
             if self.post_norm is not None:
                 temp_out = self.post_norm(query)
+                
                 temp_out = torch.nan_to_num(temp_out).transpose(1, 0)
 
                 intermediate.append(temp_out)
@@ -84,20 +101,23 @@ class CascadePETRTransformerDecoder(TransformerLayerSequence):
 
                 outputs_classes.append(outputs_class)
                 outputs_coords.append(outputs_coord)
-
+            if index == self.test_breaking:
+                if not self.training:
+                    return outputs_classes, outputs_coords, torch.stack(intermediate)
             # update query pos
-            if index < (len(self.layers)-1):
+            if index < (int(len(self.layers)/2)-1):
                 reference_points = tmp[..., 0:3].clone()
                 bev_query_embeds, rv_query_embeds = query_embed(reference_points, img_metas)
-                query_pos = (bev_query_embeds + rv_query_embeds)
-                query_pos = temporal_alignment_pos(query_pos, reference_points).transpose(0, 1).contiguous()
+                bev_query_pos, rv_query_pos = temporal_alignment_pos(bev_query_embeds, rv_query_embeds, reference_points)
+                bev_query_pos = bev_query_pos.transpose(1,0).contiguous()
+                rv_query_pos = rv_query_pos.transpose(1,0).contiguous()
 
         return outputs_classes, outputs_coords, torch.stack(intermediate)
 
 
 
 @TRANSFORMER.register_module()
-class CascadePETRTemporalTransformer(BaseModule):
+class RCTransTemporalTransformer(BaseModule):
     """Implements the DETR transformer.
     Following the official DETR implementation, this module copy-paste
     from torch.nn.Transformer with modifications:
@@ -116,11 +136,12 @@ class CascadePETRTemporalTransformer(BaseModule):
     """
 
     def __init__(self, encoder=None, decoder=None, init_cfg=None, cross=False):
-        super(CascadePETRTemporalTransformer, self).__init__(init_cfg=init_cfg)
+        super(RCTransTemporalTransformer, self).__init__(init_cfg=init_cfg)
         if encoder is not None:
             self.encoder = build_transformer_layer_sequence(encoder)
         else:
             self.encoder = None
+        decoder['num_layers'] = decoder['num_layers']*2
         self.decoder = build_transformer_layer_sequence(decoder)
         self.embed_dims = self.decoder.embed_dims
         self.cross = cross
@@ -156,19 +177,14 @@ class CascadePETRTemporalTransformer(BaseModule):
                       [bs, embed_dims, h, w].
         """
         memory = memory.transpose(0, 1).contiguous()
-        query_pos = query_pos.transpose(0, 1).contiguous()
         pos_embed = pos_embed.transpose(0, 1).contiguous()
         
         n, bs, c = memory.shape
 
         if tgt is None:
-            tgt = torch.zeros_like(query_pos)
+            tgt = torch.zeros_like(query_pos[0])
         else:
             tgt = tgt.transpose(0, 1).contiguous()
-
-        if temp_memory is not None:
-            temp_memory = temp_memory.transpose(0, 1).contiguous()
-            temp_pos =  temp_pos.transpose(0, 1).contiguous()
 
         # out_dec: [num_layers, num_query, bs, dim]
         outputs_classes, outputs_coords, outs_dec = self.decoder(

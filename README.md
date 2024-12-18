@@ -5,15 +5,14 @@
 <h5>MAIS&CASIA, UCAS<h5>
 </div>
 
-[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)]()
-
-The paper will be released as soon as possiable.
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2412.12799)
 
 ## Introduction
 
 This repository is an official implementation of RCTrans.
 
 ## News
+- [2024/12/18] Camera Ready version is released.
 - [2024/12/13] Codes and weights are released.
 - [2024/12/10] RCTrans is accepted by AAAI 2025 🎉🎉.
 

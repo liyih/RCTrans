@@ -94,4 +94,10 @@ We thank these great works and open-source codebases:
 ## Citation
 If you find our work is useful, please give this repo a star and cite our work as:
 ```bibtex
+@article{li2024rctrans,
+  title={RCTrans: Radar-Camera Transformer via Radar Densifier and Sequential Decoder for 3D Object Detection},
+  author={Li, Yiheng and Yang, Yang and Lei, Zhen},
+  journal={arXiv preprint arXiv:2412.12799},
+  year={2024}
+}
 ```
